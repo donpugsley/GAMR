@@ -30,7 +30,7 @@ print (f'{n} points with {len(skips)} skips over {n/SR} seconds, {(n/SR)/60} min
 x = np.array(D[0])
 x = (x.astype(float)*2*5)/(2**24) # voltage
 x = (x/(5e-3*182.8181818181))*1e5 # nT
-y = np.array(D[1])
+y = np.array(D[1]) # this is signed 24 bit turned into signed 32 bit int
 y = (y.astype(float)*2*5)/(2**24)
 y = (y/(5e-3*182.8181818181))*1e5
 z = np.array(D[2])

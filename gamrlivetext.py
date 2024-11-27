@@ -2,10 +2,54 @@
 import serial
 import io
 import numpy as np
-import plotille
-import gamrlib as gamr
+#import matplotlib
 
 SR = 2000
+
+def decode(data):
+    p = 1 # Pointer to current position
+    x=[]
+    xs=[]
+    y=[]
+    ys=[]
+    z=[]
+    zs=[]
+    t=[]
+    ts=[]
+    f=[]
+
+    while p < len(data):
+        # Find next 0x10
+        d1 = data.find(b'\x10',p)
+        if d1 > 0:
+            d2 = data.find(b'\x11',d1)
+            if d2 == d1+4:
+                d3 = data.find(b'\x12',d2)
+                if d3 == d2+4:
+                    d4 = data.find(b'\x13',d3)
+                    if d4 == d3+4: # Correct spacing - decode this packet
+
+                        p = d4 # Update pointer
+
+                        xs.append(data[d1])
+                        x.append(int.from_bytes(bytearray(data[d1+1:d2]),byteorder='big'))
+                        ys.append(data[d2])
+                        y.append(int.from_bytes(bytearray(data[d2+1:d3]),byteorder='big'))
+                        zs.append(data[d3])
+                        z.append(int.from_bytes(bytearray(data[d3+1:d4]),byteorder='big'))
+                        ts.append(data[d4])
+                        t.append(int.from_bytes(bytearray(data[d4+1:d4+4]),byteorder='big'))
+                        f.append(data[d4+5])
+                        
+#                        print('Indices: ',d1,d2,d3,d4)
+                    else: # No more 0x13
+                        return x,xs,y,ys,z,zs,t,ts,f
+                else: # No more 0x12
+                    return x,xs,y,ys,z,zs,t,ts,f
+            else: # No more 0x11
+                return x,xs,y,ys,z,zs,t,ts,f
+        else: # No more 0x10
+            return x,xs,y,ys,z,zs,t,ts,f
 
 ser = serial.Serial(
     port = "/dev/ttyS4",
@@ -23,50 +67,16 @@ buffered_reader = io.BufferedReader(ser,buffer_size=int(BUFSEC*2000*17)) # Hold
 
 while (1):
     try:
+-        
         b = buffered_reader.read(int(READSEC*2000*17)) # First call reads a buffer full
-        print(f'Read {len(b)} bytes')
-        D = gamr.decode(b)
-        
-        n = len(D[0])
-        skips = D[5] # byte offsets of data skips
-        print(f'Decoded {len(D[0])} points with {len(skips)} data skips')
-        
-        # Convert to nT
+        D = decode(b)
         x = np.array(D[0])
-        x = (x.astype(float)*2*5)/(2**24) # voltage
-        x = (x/(5e-3*182.8181818181))*1e5 # nT
-        y = np.array(D[1])
-        y = (y.astype(float)*2*5)/(2**24)
-        y = (y/(5e-3*182.8181818181))*1e5
-        z = np.array(D[2])
-        z = (z.astype(float)*2*5)/(2**24)
-        z = (z/(5e-3*182.8181818181))*1e5
+        y = np.array(D[2])
+        z = np.array(D[4])
+        temp = np.array(D[6])
+        t = np.array(list(range(1,x.size+1)))/SR # Seconds  
 
-        # Convert to deg C
-        temp = np.array(D[3])
-        temp = ((temp.astype(float)*2*5)/(2**24))*1e3
-        temp = ((5.506-np.sqrt((-5.506)**2+4*0.00176*(870.6-temp)))/(2*(-0.00176)))+30
-        temp = temp/10 # Bullshit approximate fix, not sure whats wrong with previous line
-        flag = D[4]
-        
-        # Create time, assuming no skips
-        t = np.array(list(range(1,x.size+1)))/SR # Seconds
-        t = t.astype(float)
-
-        f = plotille.Figure()
-        f.width = 60
-        f.height = 30
-        f.set_x_limits(min_=min(t),max_=max(t))
-        mmax = max(max(x),max(y),max(z))
-        mmin = min(min(x),min(y),min(z))
-        f.set_y_limits(min_=mmin,max_=mmax)
-        f.color_mode = 'byte'
-        f.scatter(t,x,lc=25,label='X')
-        f.scatter(t,y,lc=100,label='Y')
-        f.scatter(t,z,lc=200,label='Z')
-        print(f.show(legend=True))
-        
-        print(f'({len(x)}) X {np.mean(x):.6}\t({len(y)}) Y {np.mean(y):.6} \t({len(z)}) Z {np.mean(z):.6}')
+        print('X ',f'{np.mean(x):.6}', '\tY ',f'{np.mean(y):.6}', '\tZ ',f'{np.mean(z):.6}')
         
     except KeyboardInterrupt:
         ser.close()
