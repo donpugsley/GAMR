@@ -51,10 +51,10 @@ def decode(data):
                         
                         p = d4 # Update pointer
 
-                        x.append(int.from_bytes(bytearray(data[d1+1:d2]),signed=True))
-                        y.append(int.from_bytes(bytearray(data[d2+1:d3]),signed=True))
-                        z.append(int.from_bytes(bytearray(data[d3+1:d4]),signed=True))
-                        t.append(int.from_bytes(bytearray(data[d4+1:d4+4]),signed=True))
+                        x.append(int.from_bytes(bytearray(data[d1+1:d2]),byteorder="big",signed=True))
+                        y.append(int.from_bytes(bytearray(data[d2+1:d3]),byteorder="big",signed=True))
+                        z.append(int.from_bytes(bytearray(data[d3+1:d4]),byteorder="big",signed=True))
+                        t.append(int.from_bytes(bytearray(data[d4+1:d4+4]),byteorder="big",signed=True))
                         f.append(data[d4+5])
                         
 #                        print(': ',d1,d2,d3,d4)
