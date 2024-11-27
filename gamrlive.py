@@ -25,16 +25,11 @@ while (1):
     try:
         b = buffered_reader.read(int(READSEC*2000*17)) # First call reads a buffer full
         D = gamr.decode(b)
-
     
         n = len(D[0])
         skips = D[5] # byte offsets of data skips
         
-        print (f'{n} points with {len(skips)} skips over {n/SR} seconds, {(n/SR)/60} minutes...')
-        
-        # Decode status
-        
-        # Grab data and convert to floats
+        # Convert to nT
         x = np.array(D[0])
         x = (x.astype(float)*2*5)/(2**24) # voltage
         x = (x/(5e-3*182.8181818181))*1e5 # nT
@@ -44,6 +39,8 @@ while (1):
         z = np.array(D[2])
         z = (z.astype(float)*2*5)/(2**24)
         z = (z/(5e-3*182.8181818181))*1e5
+
+        # Convert to deg C
         temp = np.array(D[3])
         temp = ((temp.astype(float)*2*5)/(2**24))*1e3
         temp = ((5.506-np.sqrt((-5.506)**2+4*0.00176*(870.6-temp)))/(2*(-0.00176)))+30
@@ -55,17 +52,17 @@ while (1):
         t = t.astype(float)
 
         f = plotille.Figure()
-        f.width = 120
-        f.height = 40
+        f.width = 100
+        f.height = 35
         f.set_x_limits(min_=min(t),max_=max(t))
         f.set_y_limits(min_=min(x),max_=max(x))
         f.color_mode = 'byte'
-        f.scatter(t,x,label='X',lc=25)
-        f.scatter(t,y,label='Y',lc=100)
-        f.scatter(t,z,label='Z',lc=200)
+        f.scatter(t,x,lc=25,label='X')
+        f.scatter(t,y,lc=100,label='Y')
+        f.scatter(t,z,lc=200,label='Z')
         print(f.show(legend=False))
         
-        # print('X ',f'{np.mean(x):.6}', '\tY ',f'{np.mean(y):.6}', '\tZ ',f'{np.mean(z):.6}')
+        print('X ',f'{np.mean(x):.6}', '\tY ',f'{np.mean(y):.6}', '\tZ ',f'{np.mean(z):.6}')
         
     except KeyboardInterrupt:
         ser.close()
