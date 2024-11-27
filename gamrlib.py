@@ -1,17 +1,5 @@
 # Support functions for George Valdes AMR sensors
 
-from dataclasses import dataclass
-
-global dataskip
-
-@dataclass
-class AMR: 
-    """Class to hold decoded GAMR sensor status bytes"""
-    filter_saturated: bool
-    filter_type_FIR: bool
-    repeated_data: bool
-    filter_not_settled: bool
-    error: bool
 
 def test_bit(byte, bit_position):
   """
@@ -29,11 +17,9 @@ def test_bit(byte, bit_position):
 
 def decode(data):
     """Extract magnetic field readings from binary GAMR data"""
-    global dataskip # Count number of data skips
     p = 1 # Pointer to current position
-    dataskip = 0 
-
-    x,y,z,t,f = ([] for _ in range(5))
+    
+    x,y,z,t,f,dataskip = ([] for _ in range(6))
 
     while p < len(data):
         # 0x10 is the status byte for channel zero with all status bits zero, (00010000)=0x10/0x11/0x12/0x13 are the same for channels 1,2,3
@@ -43,41 +29,41 @@ def decode(data):
         d1 = data.find(b'\x10',p)
 #        print ('1',end="")
         if d1==0:
-            return x,y,z,t,f
+            return x,y,z,t,f,dataskip
         if d1 > 0:
             d2 = data.find(b'\x11',d1)
 #            print ('2',end="")
             if d2==0:
-                return x,y,z,t,f
+                return x,y,z,t,f,dataskip
             if d2 == d1+4:
                 d3 = data.find(b'\x12',d2)
 #                print ('3',end="")
                 if d3==0:
-                    return x,y,z,t,f
+                    return x,y,z,t,f,dataskip
                 if d3 == d2+4:
                     d4 = data.find(b'\x13',d3)
 #                    print ('4',end="")
                     if d4==0:
-                        return x,y,z,t,f
+                        return x,y,z,t,f,dataskip
                     if d4 == d3+4: # Correct spacing - decode this packet
                         if d4+5 >= len(data):
-                            return x,y,z,t,f
+                            return x,y,z,t,f,dataskip
                         
                         p = d4 # Update pointer
 
-                        x.append(int.from_bytes(bytearray(data[d1+1:d2])))
-                        y.append(int.from_bytes(bytearray(data[d2+1:d3])))
-                        z.append(int.from_bytes(bytearray(data[d3+1:d4])))
-                        t.append(int.from_bytes(bytearray(data[d4+1:d4+4])))
+                        x.append(int.from_bytes(bytearray(data[d1+1:d2]),signed=True))
+                        y.append(int.from_bytes(bytearray(data[d2+1:d3]),signed=True))
+                        z.append(int.from_bytes(bytearray(data[d3+1:d4]),signed=True))
+                        t.append(int.from_bytes(bytearray(data[d4+1:d4+4]),signed=True))
                         f.append(data[d4+5])
                         
 #                        print(': ',d1,d2,d3,d4)
                     else: # bad spacing... d4 was not preceded by d1, d2, and d3
                         p = d4
-                        dataskip = dataskip + 1
+                        dataskip.append(p) 
                 else: # bad spacing... d3 was not preceded by d1 and d2
                     p = d3
-                    dataskip = dataskip + 1
+                    dataskip.append(p) 
             else: # bad spacing... d1 was not preceded by d1
                 p = d2
-                dataskip = dataskip + 1
+                dataskip.append(p) 
