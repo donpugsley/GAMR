@@ -59,6 +59,16 @@ def ftmg7plot(t,G,units,title):
 def tf(x,y,z):
     return np.sqrt(x*x+y*y+z*z)
 
+def plot(stuff):
+    v = np.array(stuff)
+    fig, ax = plt.subplots()
+    mv = np.mean(v)
+    ax.plot(v,label=f'{mv:.0f} mean')
+    ax.legend()
+    plt.tick_params(axis='both', which='major', labelsize=12)
+    plt.grid(visible='true')
+    plt.show()
+
 def oneplot(t,v,units,title):
     fig, ax = plt.subplots()
     mv = np.mean(v)
