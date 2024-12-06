@@ -1,7 +1,8 @@
 # Support functions for George Valdes AMR sensors
 import re
-import regex
+#import regex
 import numpy as np
+import plotille
 
 def test_bit(byte, bit_position):
   """
@@ -17,6 +18,9 @@ def test_bit(byte, bit_position):
 
   return (byte & (1 << bit_position)) != 0
 
+def mr(arr):
+    return arr - np.mean(arr)
+  
 def nanotesla(i3): # Convert GAMR 24 bit binary to numpy float nT
     nt = np.array(i3) # this is signed 24 bit turned into signed 32 bit int
     nt = (nt.astype(float)*2*5)/(2**24)
@@ -32,14 +36,16 @@ def temperature(i3): # Convert GAMR 24 bit binary to numpy float degrees C
 
 def decode(data):
     """Extract magnetic field readings from binary GAMR data"""
+    # Data for one channel is a status byte and 24 bits (3 bytes) of data, 4 bytes total
+    # A data packet is 4 channels plus one flag byte, so 17 bytes
     p1 = re.compile(b'\x10(.{3})\x11(.{3})\x12(.{3})\x13(.{3})(.)') # plain
     m1 = re.findall(p1,data)
-    sign = np.array([-1 if int.from_bytes(a[4]) & 0x80 > 0 else 1 for a in m1]) # x = [a * b for a, b in zip(dx,sign)]
+    sign = np.array([-1 if int.from_bytes(a[4],byteorder="big") & 0x80 > 0 else 1 for a in m1]) 
     x = nanotesla([int.from_bytes(bytearray(a[0]),byteorder="big",signed=True) for a in m1])    
     y = nanotesla([int.from_bytes(bytearray(a[1]),byteorder="big",signed=True) for a in m1])
     z = nanotesla([int.from_bytes(bytearray(a[2]),byteorder="big",signed=True) for a in m1])
     t = temperature([int.from_bytes(bytearray(a[3]),byteorder="big",signed=True) for a in m1])
-    pps = [True if int.from_bytes(a[4]) & 0x01 > 0 else False for a in m1]
+    pps = [True if int.from_bytes(a[4],byteorder="big") & 0x01 > 0 else False for a in m1]
 
     return x,y,z,t,pps,sign
 
@@ -107,3 +113,29 @@ def olddecode(data):
             return x,y,z,t,f,dataskip
     # Fall through
     return x,y,z,t,f,dataskip
+
+def pplot(x,y,z,SR):
+    xm = np.mean(x)
+    ym = np.mean(y)
+    zm = np.mean(z)
+
+    # Create time, assuming no skips
+    t = np.array(list(range(1,len(x)+1)))/SR # Seconds
+    t = t.astype(float)
+
+    n = len(x)
+    print (f'{n} points over {n/SR:.1f} seconds, {(n/SR)/60:.1f} minutes...')
+    
+    f = plotille.Figure()
+    f.width = 100
+    f.height = 40
+    f.set_x_limits(min_=min(t),max_=max(t))
+    mmax = max(max(x-xm),max(y-ym),max(z-zm))
+    mmin = min(min(x-xm),min(y-ym),min(z-zm))
+    f.set_y_limits(min_=mmin*1.05,max_=mmax*1.05)
+    f.color_mode = 'names'
+    f.scatter(t,x-xm,lc='red',label=f'X {xm:.0f} DC')
+    f.scatter(t,y-ym,lc='green',label=f'Y {ym:.0f} DC')
+    f.scatter(t,z-zm,lc='blue',label=f'Z {zm:.0f} DC')
+    print(f.show(legend=True))
+  
